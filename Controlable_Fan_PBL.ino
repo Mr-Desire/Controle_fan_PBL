@@ -1,90 +1,118 @@
 // Name: Desire Gonyora
-// Class: Introduction to IOT (Internet of things)
-// Project: Controlable fan
+// Class: Introduction to IOT (Internet of Things)
+// Project: Controllable Smart Fan
 
-//Library 
+// Including the libraries
 #include <DHT.h>
 #include <LiquidCrystal.h>
 
-// LCD Pins
+// Setting up LCD
 const int rs = 7, en = 8, d4 = 9, d5 = 10, d6 = 11, d7 = 12;
 LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
 
-// DHT11 setup
+// Setting up the DHT11 
 #define DHTPIN 2
 #define DHTTYPE DHT11
+
 DHT dht(DHTPIN, DHTTYPE);
 
-// potentiometer + fan setup 
-int potPin = A0; 
+// Setting up the Pot and the fan
+int potPin = A0;
 int fanPin = 5;
 
-// Function #1: Potntiometer controle speed
+
+// Function #1: Manual fan speed control
 int getManualSpeed() {
+
   int potValue = analogRead(potPin);
-  return map(potValue, 0, 1023, 0, 255);
+
+  // Convert 0–1023 into 0–255
+  int speed = map(potValue, 0, 1023, 0, 255);
+
+  return speed;
 }
 
-// Funtion #2: Automatically setting the speed
+// Function #2: Automatic temperature-based speed
 int autoSpeed(float temp) {
-  if (temp < 22) {
-    return 0;
-  }
-  else if (temp < 26) {
-    return 120;
-  }
-  else {
-    return 255;
-  }
+
+  // Limiting temperature range
+  if (temp < 20) temp = 20;
+  if (temp > 35) temp = 35;
+
+  // Speed control
+  return map(temp, 20, 35, 0, 255);
 }
 
-  void setup() {
-  
-    pinMode(fanPin, OUTPUT);
+// Setting up
+void setup() {
 
-    lcd.begin(16, 2);
+  pinMode(fanPin, OUTPUT);
 
-    Serial.begin(9600);
+  lcd.begin(16, 2);
 
-    dht.begin();
+  Serial.begin(9600);
+
+  dht.begin();
+
+  // Startup message
+  lcd.setCursor(0, 0);
+  lcd.print("Smart Fan");
+
+  lcd.setCursor(0, 1);
+  lcd.print("Starting...");
+
+  delay(2000);
+
+  lcd.clear();
+}
+
+// THE VOOIIDD
+void loop() {
+
+  // Read temperature
+  float temperature = dht.readTemperature();
+
+  int speed;
+
+  // If DHT11 fails -> use potentiometer
+  if (isnan(temperature)) {
+
+    speed = getManualSpeed();
+
+    lcd.setCursor(0, 0);
+    lcd.print("Manual Mode   ");
   }
 
-  void loop() {
+  // Otherwise -> automatic mode
+  else {
 
-    float temperature = dht.readTemperature(); 
+    speed = autoSpeed(temperature);
 
-    int speed;
-
-    // If sensor fails -> manual mode
-    if (isnan(temperature)) {
-      speed = getManualSpeed(); 
-    }
-
-    analogWrite(fanPin, speed);
-
-    int percent = map(speed, 0, 255, 0, 100);
-
-    // LCD display
-    lcd.clear();
-
-    lcd.setCursor(0,0);
+    lcd.setCursor(0, 0);
     lcd.print("Temp: ");
     lcd.print(temperature);
-    lcd.print(" C");
+    lcd.print(" C   ");
+  }
 
-    lcd.setCursor(0, 1);
-    lcd.print("fan: ");
-    lcd.print(percent);
-    lcd.print("%"); 
+  // Send PWM signal to fan
+  analogWrite(fanPin, speed);
 
-     // Serial monitor
-  Serial.print("Temp: ");
+  // Convert speed to percentage
+  int percent = map(speed, 0, 255, 0, 100);
+
+  // LCD second row
+  lcd.setCursor(0, 1);
+  lcd.print("Fan: ");
+  lcd.print(percent);
+  lcd.print("%   ");
+
+  // Serial Monitor output
+  Serial.print("Temperature: ");
   Serial.print(temperature);
 
-  Serial.print(" | Fan: ");
+  Serial.print(" | Fan Speed: ");
   Serial.print(percent);
   Serial.println("%");
 
   delay(1000);
 }
-
